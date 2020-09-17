@@ -58,3 +58,37 @@ def discriminator(X,reuse=False):
 		d2 = tf.layers.conv1d(d1,1,5,activation=tf.nn.leaky_relu,padding='same')
 		dout = tf.layers.dense(tf.squeeze(d2,2),108*108) #returns 1 or 0
     return dout
+
+
+X = tf.placeholder(tf.float32,[None,window_size])
+Z = tf.placeholder(tf.float32,[None,window_size])
+G_sample = generator(Z)
+r_logits = discriminator(X)
+f_logits = discriminator(G_sample,reuse=True)
+disc_loss = tf.reduce_mean(tf.nn.sigmoid_cross_entropy_with_logits(logits=r_logits,labels=tf.ones_like(r_logits)) + tf.nn.sigmoid_cross_entropy_with_logits(logits=f_logits,labels=tf.zeros_like(f_logits)))
+gen_loss = tf.reduce_mean(tf.nn.sigmoid_cross_entropy_with_logits(logits=f_logits,labels=tf.ones_like(f_logits)))
+
+gen_vars = tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES,scope="GAN/Generator")
+disc_vars = tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES,scope="GAN/Discriminator")
+saver = tf.train.Saver(tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES,scope="GAN/Discriminator"))
+
+gen_step = tf.train.RMSPropOptimizer(learning_rate=0.005).minimize(gen_loss,var_list = gen_vars) # G Train step
+disc_step = tf.train.RMSPropOptimizer(learning_rate=0.005).minimize(disc_loss,var_list = disc_vars) # D Train step
+total_batch_size=xtrain.shape[0]
+nd_steps = 10
+ng_steps = 10
+with tf.Session() as sess:
+	sess.run(tf.global_variables_initializer())
+	for s in range(0,1000):
+		size=window_size
+		for k in range(0,total_batch_size-size-1):
+			xtemp=xtrain[k:k+size].dropna(axis=1)
+			batch_x=xtemp.values
+			batch_x=np.swapaxes(batch_x,0,1)
+			Z_batch = sample_Z(len(batch_x), len(batch_x[0]))
+			for _ in range(nd_steps):
+				_, dloss = sess.run([disc_step, disc_loss], feed_dict={X: batch_x, Z: Z_batch})
+			for _ in range(ng_steps):
+				_, gloss = sess.run([gen_step, gen_loss], feed_dict={Z: Z_batch})
+			print(dloss,gloss)
+		saver.save(sess, './GAN05/model', global_step=s)
