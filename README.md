@@ -8,3 +8,7 @@ Kaggle Melanoma detection competition
 
 3. Unet for medical image segmentation:
 implementation of the architecture
+
+4. convolutional autoencoder:
+trained to copy monet paintings
+used dataset on kaggle
